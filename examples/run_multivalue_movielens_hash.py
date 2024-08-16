@@ -43,3 +43,19 @@ if __name__ == "__main__":
     model.compile("adam", "mse", metrics=['mse'], )
     history = model.fit(model_input, data[target].values,
                         batch_size=256, epochs=10, verbose=2, validation_split=0.2, )
+    # 输出模型文件 
+    # 指定保存模型的路径  
+    export_dir = './saved_model/deepfm_moive/' 
+    
+    # 保存模型  
+    tf.saved_model.save(model, export_dir)
+
+    # 打印模型结构
+    print("model", model.summary())
+    
+    from tensorflow.keras.utils import plot_model  
+  
+    # 假设你已经有了一个模型 model  
+    plot_model(model, to_file='./img/model_plot_moive.png', show_shapes=True, show_layer_names=True)
+    
+    print("*"*30+"end"+"*"*30)

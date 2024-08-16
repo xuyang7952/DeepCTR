@@ -5,12 +5,13 @@ from sklearn.preprocessing import LabelEncoder, MinMaxScaler
 
 from deepctr.models import DeepFM
 from deepctr.feature_column import SparseFeat, DenseFeat, get_feature_names
+import tensorflow as tf
 
 if __name__ == "__main__":
     data = pd.read_csv('./criteo_sample.txt')
 
-    sparse_features = ['C' + str(i) for i in range(1, 27)]
-    dense_features = ['I' + str(i) for i in range(1, 14)]
+    sparse_features = ['C' + str(i) for i in range(1, 3)]
+    dense_features = ['I' + str(i) for i in range(1, 3)]
 
     data[sparse_features] = data[sparse_features].fillna('-1', )
     data[dense_features] = data[dense_features].fillna(0, )
@@ -50,3 +51,20 @@ if __name__ == "__main__":
     pred_ans = model.predict(test_model_input, batch_size=256)
     print("test LogLoss", round(log_loss(test[target].values, pred_ans), 4))
     print("test AUC", round(roc_auc_score(test[target].values, pred_ans), 4))
+    
+    # 输出模型文件 
+    # 指定保存模型的路径  
+    export_dir = './saved_model/deepfm_criteo' 
+    
+    # 保存模型  
+    tf.saved_model.save(model, export_dir)
+
+    # 打印模型结构
+    print("model", model.summary())
+    
+    from tensorflow.keras.utils import plot_model  
+  
+    # 假设你已经有了一个模型 model  
+    plot_model(model, to_file='./img/model_plot_deepfm_criteo2_nofm.png', show_shapes=True, show_layer_names=True)
+    
+    print("*"*30+"end"+"*"*30)

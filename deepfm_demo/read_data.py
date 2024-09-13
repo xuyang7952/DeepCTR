@@ -20,12 +20,28 @@ def read_data(data_paths, batch_size, buffer_size):
         dataset = tf.data.TextLineDataset(filename).skip(1)  # 跳过第一行标题
         # 解析每一行数据
         def parse_csv(line):
-            record_defaults = [[0]] * (config['sparse_num_field'] + config['dense_feature_dim'])
+            # 定义特征索引字典，其中键为特征索引，值为特征类型（'sparse' 或 'dense'）
+            feature_indices = {
+                1: 'sparse', 2: 'sparse', 3: 'dense', 4: 'sparse', 5: 'dense', 6: 'dense'
+                # ... 其他特征索引
+            }
+            
+            # 解析CSV行
+            record_defaults = [[0]] * len(feature_indices)
             parsed_line = tf.io.decode_csv(line, record_defaults=record_defaults)
+
+            # 根据索引字典分离特征
+            sparse_features = []
+            dense_features = []
+            for index, feature_type in feature_indices.items():
+                if feature_type == 'sparse':
+                    sparse_features.append(parsed_line[index])
+                else:
+                    dense_features.append(parsed_line[index])
+
             # 分离特征和标签
             label = parsed_line[0]
-            sparse_features = parsed_line[1:config['sparse_num_field']+1]
-            dense_features = parsed_line[config['sparse_num_field']+1:]
+
             return {'sparse_inputs': sparse_features, 'dense_inputs': dense_features}, label
 
         # 应用解析函数

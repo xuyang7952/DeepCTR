@@ -5,12 +5,12 @@ from tensorflow.keras.utils import plot_model
 # DNN模块类
 class DNN(layers.Layer):
     def __init__(self, sparse_feature_number, sparse_feature_dim,
-                 dense_feature_dim, num_field, layer_sizes):
+                 dense_feature_number, num_field, layer_sizes):
         super(DNN, self).__init__()
         # 初始化网络的参数
         self.sparse_feature_number = sparse_feature_number  # 稀疏特征的数量
         self.sparse_feature_dim = sparse_feature_dim  # 稀疏特征的维度
-        self.dense_feature_dim = dense_feature_dim  # 密集特征的维度
+        self.dense_feature_number = dense_feature_number  # 密集特征的维度
         self.num_field = num_field  # 特征字段的数量
         self.layer_sizes = layer_sizes  # MLP网络中隐藏层的节点数列表
 
@@ -51,7 +51,7 @@ class DNN(layers.Layer):
 # FM模块类
 class FM(layers.Layer):
     def __init__(self, sparse_feature_number, sparse_feature_dim,
-                 dense_feature_dim, sparse_num_field):
+                 dense_feature_number, sparse_num_field):
         # 初始化函数，用于初始化模型的参数和层
         super(FM, self).__init__()
         # 稀疏特征的数量
@@ -59,7 +59,7 @@ class FM(layers.Layer):
         # 稀疏特征的维度
         self.sparse_feature_dim = sparse_feature_dim
         # 密集特征的维度
-        self.dense_feature_dim = dense_feature_dim
+        self.dense_feature_number = dense_feature_number
         # 密集特征嵌入的维度，这里设置为稀疏特征的维度
         self.dense_emb_dim = self.sparse_feature_dim
         # 稀疏特征字段的数量
@@ -87,7 +87,7 @@ class FM(layers.Layer):
 
         # 定义密集特征的权重，用于一阶特征交互
         self.dense_w_one = self.add_weight(
-            shape=(self.dense_feature_dim,),
+            shape=(self.dense_feature_number,),
             initializer=tf.keras.initializers.TruncatedNormal(
                 mean=0.0, stddev=self.init_value_ / tf.sqrt(float(self.sparse_feature_dim))),
             trainable=True,
@@ -96,7 +96,7 @@ class FM(layers.Layer):
 
         # 定义密集特征的权重，用于二阶特征交互，连续特征也添加
         self.dense_w = self.add_weight(
-            shape=(1, self.dense_feature_dim, self.dense_emb_dim),
+            shape=(1, self.dense_feature_number, self.dense_emb_dim),
             initializer=tf.keras.initializers.TruncatedNormal(
                 mean=0.0, stddev=self.init_value_ / tf.sqrt(float(self.sparse_feature_dim))),
             trainable=True,
@@ -113,10 +113,10 @@ class FM(layers.Layer):
         sparse_emb_one = self.embedding_one(sparse_inputs_concat)
 
         # -------------------- 稠密特征交互部分  --------------------
-        # 对稠密特征进行加权，[输入：[batch_size, dense_feature_dim],输出：[batch_size, dense_feature_dim, 1]]
+        # 对稠密特征进行加权，[输入：[batch_size, dense_feature_number],输出：[batch_size, dense_feature_number, 1]]
         dense_emb_one = tf.multiply(dense_inputs, self.dense_w_one[None, :], name='dense_emb_one')
         # 稠密特征需要扩展添加个维度，稀疏特征做了一个Embedding为1的操作，为后续的reduce_sum，保持相同的维度数
-        # [输入：[batch_size, dense_feature_dim],输出：[batch_size, dense_feature_dim, 1]]
+        # [输入：[batch_size, dense_feature_number],输出：[batch_size, dense_feature_number, 1]]
         dense_emb_one = tf.expand_dims(dense_emb_one, axis=2, name='dense_emb_one_expanded')
         # 计算一阶特征交互输出
         y_first_order = tf.reduce_sum(sparse_emb_one, axis=1, name='sparse_first_order') + \
@@ -163,7 +163,7 @@ def build_graph(self, input_shape):
     # 创建稀疏输入层列表，每个输入层对应一个稀疏特征，名称根据特征索引命名
     sparse_inputs = [tf.keras.Input(shape=(1,), name=f'sparse_input_{i}') for i in range(self.sparse_num_field)]
     # 创建密集输入层，形状为密集特征维度，名称为'dense_inputs'
-    dense_inputs = tf.keras.Input(shape=(self.dense_feature_dim,), name='dense_inputs')
+    dense_inputs = tf.keras.Input(shape=(self.dense_feature_number,), name='dense_inputs')
     # 构建并返回模型，输入包括稀疏输入和密集输入，输出通过调用模型的call方法计算得到，模型名称为'FM_Model'
     return Model(inputs=[sparse_inputs, dense_inputs], outputs=self.call(sparse_inputs, dense_inputs), name='FM_Model')
 
@@ -171,15 +171,18 @@ def build_graph(self, input_shape):
 # DeepFM模型类
 class DeepFM(Model):
     def __init__(self, sparse_feature_number, sparse_feature_dim,
-                dense_feature_dim, sparse_num_field, layer_sizes):
+                dense_feature_number, sparse_num_field, layer_sizes):
         """
-        初始化DeepFM模型的参数。
+        初始化DeepFM模型的参数。这里的模型是训练的数据是处理后的数据，把所有的稀疏特征的可能的值取个上限，然后进行索引编码，所以原始数据中的稀疏特征的值，要进行索引编码，
+        保证所有的稀疏特征的可能的值，都是不同的索引，再加上连续特征的个数，就是所有的索引数，比如类别特征总共有10个，可能的是10000个，连续特征的值是50个，那总索引的数是
+        10050个，这里去embedding的维度为5的，那仅embedding的参数就有10050*5，FM的模型因为有偏置，那就是10050*6个这么多的参数；随着类型参数可能的值越大，模型的参数类会快速增加；
+        这时候就需要使用hash降维，降低类似用户id的特征，把特征值映射到低维空间，让模型学习到这些特征之间的关联，从而提高模型的泛化能力。
 
         参数:
-        - sparse_feature_number: 稀疏特征的数量。
-        - sparse_feature_dim: 稀疏特征的维度。
-        - dense_feature_dim: 密集特征的维度。
-        - sparse_num_field: 稀疏特征字段的数量。
+        - sparse_feature_number: 表示所有稀疏特征值的总数。这是所有可能的稀疏特征值的总数。是所有的稀疏特征类别的总数。
+        - sparse_feature_dim: 每个稀疏特征的嵌入维度。即每个稀疏特征映射到的向量长度
+        - dense_feature_field: 表示稠密特征的数量。即有多少个稠密特征。通常稠密特征是一些数值型特征，如年龄、收入等。
+        - sparse_num_field: 表示稀疏特征字段的数量。即有多少个不同的稀疏特征类别。
         - layer_sizes: DNN层的尺寸列表。
 
         说明:
@@ -189,9 +192,9 @@ class DeepFM(Model):
         """
         super(DeepFM, self).__init__()
         self.fm = FM(sparse_feature_number, sparse_feature_dim,
-                    dense_feature_dim, sparse_num_field)
+                    dense_feature_number, sparse_num_field)
         self.dnn = DNN(sparse_feature_number, sparse_feature_dim,
-                    dense_feature_dim, dense_feature_dim + sparse_num_field,
+                    dense_feature_number, dense_feature_number + sparse_num_field,
                     layer_sizes)
         self.bias = self.add_weight(shape=(1,), initializer='zeros', trainable=True, name='bias')
 
@@ -254,16 +257,16 @@ if __name__ == '__main__':
     # 创建DeepFM模型实例
     model = DeepFM(sparse_feature_number=10000, 
                 sparse_feature_dim=9, 
-                dense_feature_dim=2, 
-                sparse_num_field=5, 
+                dense_feature_number=5, 
+                sparse_num_field=10, 
                 layer_sizes=[128, 64, 32])
 
     # 编译模型，指定优化器，损失函数和评价指标
     model.compile(optimizer='adam', loss='binary_crossentropy', metrics=['accuracy'])
 
     # 模拟稀疏输入数据
-    sparse_inputs = [tf.random.uniform(shape=(64, 1), maxval=1000, dtype=tf.int32, name=f'sparse_input_{i}') for i in range(5)]
-    dense_inputs = tf.random.uniform(shape=(64, 2), name='dense_inputs')
+    sparse_inputs = [tf.random.uniform(shape=(64, 1), maxval=1000, dtype=tf.int32, name=f'sparse_input_{i}') for i in range(10)]
+    dense_inputs = tf.random.uniform(shape=(64,5), name='dense_inputs')
 
     # 创建输入数据的字典
     inputs = {'sparse_inputs': sparse_inputs, 'dense_inputs': dense_inputs}
@@ -273,7 +276,7 @@ if __name__ == '__main__':
 
 
     # 构建并打印模型详细结构
-    # model.build_graph([5, 2]).summary()
+    model.build_graph([10, 5]).summary()
     model.summary()
     # model.save('./model/deepfm_model_feat5_sparsedim9',save_format='tf')
     tf.saved_model.save(model,'./model/deepfm_model_feat5_sparsedim9')

@@ -75,4 +75,4 @@ if __name__ == '__main__':
     tf.saved_model.save(model, './model/deepfm_model_feat5_sparsedim9')
 
     # 绘制模型图像
-    plot_model(model, to_file='./img/model_plot_feat5_sparsedim9.png', show_shapes=True, show_layer_names=True)
+    plot_model(model, to_file='./img/model_plot_feat5_sparsedim91.png', show_shapes=True, show_layer_names=True)

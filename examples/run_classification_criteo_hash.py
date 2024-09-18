@@ -60,6 +60,8 @@ if __name__ == "__main__":
     # 打印模型结构
     print("model", model.summary())
     
+    # 打印模型的参数，稀疏特征的embedding参数
+    print("model.layers", model.layers)
     from tensorflow.keras.utils import plot_model  
   
     # 假设你已经有了一个模型 model  

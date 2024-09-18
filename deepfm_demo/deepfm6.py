@@ -77,7 +77,7 @@ class FM(layers.Layer):
         )
 
         # 定义稀疏特征嵌入层，用于二阶特征交互
-        self.embedding = layers.Embedding(
+        self.embedding = tf.keras.layers.Embedding(
             input_dim=self.sparse_feature_number,
             output_dim=self.sparse_feature_dim,
             embeddings_initializer=tf.keras.initializers.TruncatedNormal(

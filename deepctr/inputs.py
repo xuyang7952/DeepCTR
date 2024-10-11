@@ -19,7 +19,7 @@ from .layers.utils import Hash
 def get_inputs_list(inputs):
     return list(chain(*list(map(lambda x: x.values(), filter(lambda x: x is not None, inputs)))))
 
-
+# 稀疏特征embedding
 def create_embedding_dict(sparse_feature_columns, varlen_sparse_feature_columns, seed, l2_reg,
                           prefix='sparse_', seq_mask_zero=True):
     sparse_embedding = {}
@@ -131,7 +131,7 @@ def get_varlen_pooling_list(embedding_dict, features, varlen_sparse_feature_colu
         return chain.from_iterable(pooling_vec_list.values())
     return pooling_vec_list
 
-
+# dense特征合并
 def get_dense_input(features, feature_columns):
     from . import feature_column as fc_lib
     dense_feature_columns = list(

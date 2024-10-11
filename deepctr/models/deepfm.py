@@ -64,7 +64,8 @@ def DeepFM(linear_feature_columns, dnn_feature_columns, fm_group=(DEFAULT_GROUP_
     print(f"group_embedding_dict:{group_embedding_dict}")
     print(f"dense_value_list:{dense_value_list}")
 
-    # FM模型结构，fmgrou应该可以扩展到FFM模型，只要扩充为多个组
+    # FM模型结构， 当fm_group只有一个默认值时，这里只有一个FM
+    # 当fmgroup有多个值事，就可以有多个FM交叉，避免稀疏特征过多时候，没必要进行过多的交叉；
     fm_logit = add_func([FM()(concat_func(v, axis=1))
                          for k, v in group_embedding_dict.items() if k in fm_group])
     

@@ -6,6 +6,7 @@ from sklearn.preprocessing import LabelEncoder, MinMaxScaler
 from deepctr.models import DeepFM
 from deepctr.feature_column import SparseFeat, DenseFeat, get_feature_names
 import tensorflow as tf
+from loguru import logger
 
 if __name__ == "__main__":
     data = pd.read_csv('./criteo_sample.txt')
@@ -36,10 +37,15 @@ if __name__ == "__main__":
     feature_names = get_feature_names(linear_feature_columns + dnn_feature_columns)
 
     # 3.generate input data for model
-
-    train, test = train_test_split(data, test_size=0.2, random_state=2020)
+    print(f"data.head:{data.head()}")
+    for feat in sparse_features:
+        print(f"data[{feat}].value_counts:{data[feat].value_counts()}")
+        print(f"data[{feat}].vocabulary_size:{data[feat].max()+1}")
+    train, test = train_test_split(data, test_size=0.1, random_state=2020)
     train_model_input = {name: train[name] for name in feature_names}
     test_model_input = {name: test[name] for name in feature_names}
+    # 打印测试集5个样本数据
+    print(f"test_model_input:{test_model_input}")
 
     # 4.Define Model,train,predict and evaluate
     model = DeepFM(linear_feature_columns, dnn_feature_columns, task='binary')
@@ -49,6 +55,8 @@ if __name__ == "__main__":
     history = model.fit(train_model_input, train[target].values,
                         batch_size=256, epochs=10, verbose=2, validation_split=0.2, )
     pred_ans = model.predict(test_model_input, batch_size=256)
+    # 打印pred_ans结构
+    print(f"pred_ans:{pred_ans}")
     print("test LogLoss", round(log_loss(test[target].values, pred_ans), 4))
     print("test AUC", round(roc_auc_score(test[target].values, pred_ans), 4))
     
@@ -59,8 +67,13 @@ if __name__ == "__main__":
     # 保存模型  
     tf.saved_model.save(model, export_dir)
 
-    # 打印模型结构
+    # 打印模型结构,embedding维度是4，C1这里是27个，对应的embedding总参数是108个，C2是92个，对应的参数就是
     print("model", model.summary())
+    # 打印模型的参数，每一层的参数
+    
+    # 打印模型的稀疏特征的embeding层的embedding值
+    print()
+    
     
     from tensorflow.keras.utils import plot_model  
   

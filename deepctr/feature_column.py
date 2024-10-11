@@ -212,3 +212,58 @@ def input_from_feature_columns(features, feature_columns, l2_reg, seed, prefix='
     if not support_group:
         group_embedding_dict = list(chain.from_iterable(group_embedding_dict.values()))
     return group_embedding_dict, dense_value_list
+
+
+def input_from_feature_columns2(features, feature_columns, l2_reg, seed, prefix='', seq_mask_zero=True,
+                               support_dense=True, support_group=False):
+    """
+    构建模型输入张量。
+
+    本函数根据输入的特征列配置，将原始特征数据处理成深度学习模型可以接受的输入张量形式。
+    它主要处理了稀疏特征、变长稀疏特征和稠密特征，并根据模型配置进行相应的组装。
+
+    参数:
+    - features: 原始特征数据，通常是一个字典，键为特征名，值为特征值张量。
+    - feature_columns: 特征列配置列表，定义了模型需要哪些特征及其类型。
+    - l2_reg: L2正则化系数，用于控制模型中嵌入向量的复杂度。
+    - seed: 随机种子，用于初始化模型中的随机数生成。
+    - prefix: 前缀字符串，用于命名模型中的变量。
+    - seq_mask_zero: 是否将序列特征中的mask值置为0，这对于某些模型的计算是必要的。
+    - support_dense: 是否支持稠密特征。如果为False且存在稠密特征，则会抛出错误。
+    - support_group: 是否支持将特征分组。如果为False，则不分组。
+
+    返回:
+    - group_embedding_dict: 处理后的稀疏特征和变长稀疏特征的嵌入字典（或列表，取决于support_group参数）。
+    - dense_value_list: 处理后的稠密特征值列表。如果模型不支持稠密特征，则为空列表。
+    """
+
+    # 过滤出稀疏特征列
+    sparse_feature_columns = list(
+        filter(lambda x: isinstance(x, SparseFeat), feature_columns)) if feature_columns else []
+    # 过滤出变长稀疏特征列
+    varlen_sparse_feature_columns = list(
+        filter(lambda x: isinstance(x, VarLenSparseFeat), feature_columns)) if feature_columns else []
+
+    # 创建所有特征的嵌入矩阵字典,这里就是基本就是稀疏特征的embedding
+    embedding_matrix_dict = create_embedding_matrix(feature_columns, l2_reg, seed, prefix=prefix,
+                                                    seq_mask_zero=seq_mask_zero)
+    # 稀疏特征lookup值，常用于将字符串或整数类别的特征映射到连续的整数索引
+    group_sparse_embedding_dict = embedding_lookup(embedding_matrix_dict, features, sparse_feature_columns)
+    # 获取稠密特征输入列表
+    dense_value_list = get_dense_input(features, feature_columns)
+    # 如果模型不支持稠密特征且存在稠密特征，抛出错误
+    if not support_dense and len(dense_value_list) > 0:
+        raise ValueError("DenseFeat is not supported in dnn_feature_columns")
+
+    # 查找并组装变长稀疏特征的嵌入字典
+    sequence_embed_dict = varlen_embedding_lookup(embedding_matrix_dict, features, varlen_sparse_feature_columns)
+    # 获取变长稀疏特征的池化列表
+    group_varlen_sparse_embedding_dict = get_varlen_pooling_list(sequence_embed_dict, features,
+                                                                 varlen_sparse_feature_columns)
+    # 合并稀疏特征和变长稀疏特征的嵌入字典,deepfm中只有group_sparse_embedding_dict
+    group_embedding_dict = mergeDict(group_sparse_embedding_dict, group_varlen_sparse_embedding_dict)
+    # 如果模型不支持分组，将嵌入字典转换为列表
+    if not support_group:
+        group_embedding_dict = list(chain.from_iterable(group_embedding_dict.values()))
+
+    return group_embedding_dict, dense_value_list

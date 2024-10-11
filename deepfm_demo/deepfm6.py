@@ -43,10 +43,6 @@ class DNN(layers.Layer):
         # 返回全连接层的最终输出
         return y_dnn
 
-    def build_graph(self, input_shape):
-        feat_embeddings = tf.keras.Input(shape=(self.num_field, self.sparse_feature_dim), name='feat_embeddings')
-        return Model(inputs=feat_embeddings, outputs=self.call(feat_embeddings), name='DNN_Model')
-
 
 # FM模块类
 class FM(layers.Layer):
@@ -148,25 +144,6 @@ class FM(layers.Layer):
         # 返回一阶特征交互输出，二阶特征交互输出和所有特征的嵌入表示
         return y_first_order, y_second_order, feat_embeddings
 
-def build_graph(self, input_shape):
-    """
-    构建模型的计算图。
-
-    该方法主要用于构建整个模型的输入层，包括稀疏输入和密集输入，并将这些输入连接到模型中。
-
-    参数:
-    - input_shape: 输入形状的参数，该参数在本模型中未直接使用，但保留以兼容其他可能需要该参数的模型。
-
-    返回:
-    - 返回构建好的Keras模型。
-    """
-    # 创建稀疏输入层列表，每个输入层对应一个稀疏特征，名称根据特征索引命名
-    sparse_inputs = [tf.keras.Input(shape=(1,), name=f'sparse_input_{i}') for i in range(self.sparse_num_field)]
-    # 创建密集输入层，形状为密集特征维度，名称为'dense_inputs'
-    dense_inputs = tf.keras.Input(shape=(self.dense_feature_number,), name='dense_inputs')
-    # 构建并返回模型，输入包括稀疏输入和密集输入，输出通过调用模型的call方法计算得到，模型名称为'FM_Model'
-    return Model(inputs=[sparse_inputs, dense_inputs], outputs=self.call(sparse_inputs, dense_inputs), name='FM_Model')
-
 
 # DeepFM模型类
 class DeepFM(Model):
@@ -217,10 +194,10 @@ class DeepFM(Model):
         sparse_inputs, dense_inputs = inputs['sparse_inputs'], inputs['dense_inputs']
 
         # 通过FM层计算一阶、二阶效应以及特征嵌入值
-        y_first_order, y_second_order, feat_embeddings = self.fm(sparse_inputs, dense_inputs)
+        y_first_order, y_second_order, feat_embeddings = self.fm.call(sparse_inputs, dense_inputs)
 
         # 通过DNN层对特征嵌入值进行进一步加工
-        y_dnn = self.dnn(feat_embeddings)
+        y_dnn = self.dnn.call(feat_embeddings)  
 
         # 将FM的一阶、二阶效应以及DNN的输出相加，并经过sigmoid激活函数得到最终的预测值
         predict = tf.nn.sigmoid(self.bias + y_first_order + y_second_order + y_dnn, name='prediction')
@@ -255,10 +232,10 @@ class DeepFM(Model):
 if __name__ == '__main__':
     print("*" * 30 + "start" + "*" * 30)
     # 创建DeepFM模型实例
-    model = DeepFM(sparse_feature_number=10000, 
-                sparse_feature_dim=9, 
-                dense_feature_number=5, 
-                sparse_num_field=10, 
+    model = DeepFM(sparse_feat_dict={}, 
+                sparse_feat_dim=9, 
+                dense_feat_nums=5, 
+                sparse_nums=10, 
                 layer_sizes=[128, 64, 32])
 
     # 编译模型，指定优化器，损失函数和评价指标

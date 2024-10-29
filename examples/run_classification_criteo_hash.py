@@ -61,10 +61,11 @@ if __name__ == "__main__":
     
     # 输出模型文件 
     # 指定保存模型的路径  
-    export_dir = './saved_model/deepfm_criteo_hash' 
+    export_dir = './saved_model/deepfm_criteo_hash_1025' 
     
     # 保存模型  
-    tf.saved_model.save(model, export_dir)
+    # tf.saved_model.save(model, export_dir)
+    model.save(export_dir,save_format='tf')
 
     # 打印模型结构
     logger.info("model", model.summary())

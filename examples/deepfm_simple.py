@@ -20,52 +20,52 @@ from deepctr.layers.core import PredictionLayer, DNN
 from deepctr.layers.interaction import FM
 from deepctr.layers.utils import concat_func, add_func, combined_dnn_input
 from deepctr.feature_column import SparseFeat, DenseFeat, get_feature_names
+import tensorflow as tf
 
+def DeepFMSimple(sparse_features, dense_features, feature_dict, sparse_embdim=4, dnn_hidden_units=(256, 128, 64), 
+                 l2_reg_embedding=0.001, l2_reg_dnn=0, seed=1024, dnn_dropout=0, dnn_activation='relu', 
+                 dnn_use_bn=False, task='binary'):
+    """Instantiates the DeepFM Network architecture with a single input tensor for simplified TF Serving format."""
 
-def DeepFMSimple(sparse_features,dense_features, feature_dict,sparse_embdim=4, dnn_hidden_units=(256, 128, 64),l2_reg_embedding=0.001, 
-                 l2_reg_dnn=0, seed=1024, dnn_dropout=0,dnn_activation='relu', dnn_use_bn=False, task='binary'):
-    """Instantiates the DeepFM Network architecture.
-    """ 
     embeddings_initializer = RandomNormal(mean=0.0, stddev=0.0001, seed=1024)
-    # 定义稀疏和密集特征的输入层
-    sparse_inputs = {feat: Input(shape=(1,), name=feat, dtype='int32') for feat in sparse_features}
-    dense_inputs = {feat: Input(shape=(1,), name=feat, dtype='float32') for feat in dense_features}
     
-    # 稀疏特征经过嵌入层,embedding_dim=1
-    sparse_embed1 = [Embedding(input_dim=feature_dict[feat]["sparse_size"], output_dim=1,embeddings_initializer=Zeros(),
-                               embeddings_regularizer=l2(l2_reg_embedding))(sparse_inputs[feat])
-                     for feat in sparse_features ]
+    # Define a single input layer for all features
+    input_dim = len(sparse_features) + len(dense_features)
+    inputs = Input(shape=(input_dim,), name="inputs")
     
-    # 稀疏特征经过嵌入层，embedding_dim=sparse_embdim
-    sparse_embeds = [Embedding(input_dim=feature_dict[feat]["sparse_size"], output_dim=sparse_embdim,embeddings_initializer=embeddings_initializer,
-                               embeddings_regularizer=l2(l2_reg_embedding))(sparse_inputs[feat])
-                     for feat in sparse_features ]
-    # 展平嵌入结果
-    sparse_embed1_flatten = [Flatten()(embed) for embed in sparse_embed1]
+    # Split sparse and dense parts from the input tensor
+    sparse_inputs = inputs[:, :len(sparse_features)]
+    dense_inputs = inputs[:, len(sparse_features):]
+    
+    # Process sparse inputs: Apply embeddings to each sparse feature slice
+    sparse_embeds = [Embedding(input_dim=feature_dict[feat]["sparse_size"], output_dim=sparse_embdim,
+                               embeddings_initializer=embeddings_initializer, embeddings_regularizer=l2(l2_reg_embedding))(
+                     tf.cast(sparse_inputs[:, i], tf.int32)) for i, feat in enumerate(sparse_features)]
+    
+    # Flatten embeddings
     sparse_embeds_flatten = [Flatten()(embed) for embed in sparse_embeds]
 
-    # 将密集特征拼接为列表
-    dense_values = list(dense_inputs.values())
-
-    # 将嵌入的稀疏特征和密集特征拼接在一起
-    dnn_input = Concatenate()(sparse_embeds_flatten + dense_values)
-
-    # DNN部分
+    # DNN input combines sparse embeddings and dense inputs directly
+    dnn_input = Concatenate()(sparse_embeds_flatten + [dense_inputs])
+    
+    # DNN part
     dnn_output = DNN(dnn_hidden_units, dnn_activation, l2_reg_dnn, dnn_dropout, dnn_use_bn, seed=seed)(dnn_input)
     dnn_logit = Dense(1, use_bias=False)(dnn_output)
 
-    # FM部分
-    # FM部分，使用 Reshape 进行维度调整
+    # FM part
     fm_input = Reshape((len(sparse_embeds_flatten), sparse_embdim))(Concatenate()(sparse_embeds))
     fm_logit = FM()(fm_input)
 
-    # 线性部分
-    linear_logit = Dense(1, activation=None)(Concatenate()(sparse_embed1_flatten + dense_values))
+    # Linear part
+    sparse_embed1_flatten = [Flatten()(Embedding(input_dim=feature_dict[feat]["sparse_size"], output_dim=1, 
+                               embeddings_initializer=Zeros(), embeddings_regularizer=l2(l2_reg_embedding))(
+                               tf.cast(sparse_inputs[:, i], tf.int32))) for i, feat in enumerate(sparse_features)]
+    linear_logit = Dense(1, activation=None)(Concatenate()(sparse_embed1_flatten + [dense_inputs]))
 
-    # 合并输出层
+    # Combine outputs
     final_logit = dnn_logit + fm_logit + linear_logit
     output = PredictionLayer(task)(final_logit)
 
-    # 构建模型
-    model = Model(inputs=list(sparse_inputs.values()) + list(dense_inputs.values()), outputs=output)
+    # Define and return the model
+    model = Model(inputs=inputs, outputs=output)
     return model

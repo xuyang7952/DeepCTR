@@ -2,12 +2,10 @@ import os
 import sys
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../../')))
 import pandas as pd
-from sklearn.metrics import log_loss, roc_auc_score
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import LabelEncoder, MinMaxScaler
 
 from deepfm_simple import DeepFMSimple
-from deepctr.feature_column import SparseFeat, DenseFeat, get_feature_names
 import tensorflow as tf
 from loguru import logger
 
@@ -42,10 +40,9 @@ if __name__ == "__main__":
         print(f"data[{feat}].vocabulary_size:{data[feat].max()+1}")
     train, test = train_test_split(data, test_size=0.2, random_state=2020)
     # 打印测试集5个样本数据
-    train_model_input = [train[feat].values for feat in sparse_features + dense_features]
-    test_model_input = [test[feat].values for feat in sparse_features + dense_features]
-    test_model_input5 = [test.head(2)[feat].values for feat in sparse_features + dense_features]
-    # print(f"test_model_input:{test_model_input}")
+    train_model_input = train[sparse_features + dense_features].values
+    test_model_input = test[sparse_features + dense_features].values
+    test_model_input5 = test.head()[sparse_features + dense_features].values
     print(f"test_model_input5:{test_model_input5}")
 
     # 4.Define Model,train,predict and evaluate

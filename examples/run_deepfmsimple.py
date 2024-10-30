@@ -14,7 +14,7 @@ if __name__ == "__main__":
     data = pd.read_csv('./criteo_sample.txt')
 
     sparse_features = ['C' + str(i) for i in range(1, 3)]
-    dense_features = ['I' + str(i) for i in range(1, 3)]
+    dense_features = ['I' + str(i) for i in range(1, 2)]
 
     data[sparse_features] = data[sparse_features].fillna('-1', )
     data[dense_features] = data[dense_features].fillna(0, )
@@ -60,7 +60,7 @@ if __name__ == "__main__":
     
     # 输出模型文件 
     # 指定保存模型的路径  
-    export_dir = './saved_model/deepfm_simple_1029' 
+    export_dir = './saved_model/deepfm_simple_1030_1' 
     
     # 保存模型  
     # tf.saved_model.save(model, export_dir)
@@ -77,6 +77,6 @@ if __name__ == "__main__":
     from tensorflow.keras.utils import plot_model  
   
     # 假设你已经有了一个模型 model  
-    plot_model(model, to_file='./img/deepfm_simple_1029.png', show_shapes=True, show_layer_names=True)
+    plot_model(model, to_file='./img/deepfm_simple_1030_1.png', show_shapes=True, show_layer_names=True)
     
     print("*"*30+"end"+"*"*30)

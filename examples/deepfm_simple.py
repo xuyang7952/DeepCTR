@@ -9,7 +9,6 @@ Reference:
 """
 
 from itertools import chain
-
 from tensorflow.python.keras.models import Model
 from tensorflow.python.keras.layers import  Input, Dense, Concatenate, Embedding, Flatten,Reshape
 from tensorflow.python.keras.initializers import RandomNormal, Zeros
@@ -39,8 +38,8 @@ def DeepFMSimple(sparse_features, dense_features, feature_dict, sparse_embdim=4,
     
     # Process sparse inputs: Apply embeddings to each sparse feature slice
     sparse_embeds = [Embedding(input_dim=feature_dict[feat]["sparse_size"], output_dim=sparse_embdim,
-                               embeddings_initializer=embeddings_initializer, embeddings_regularizer=l2(l2_reg_embedding))(
-                     tf.cast(sparse_inputs[:, i], tf.int32)) for i, feat in enumerate(sparse_features)]
+                  embeddings_initializer=embeddings_initializer, embeddings_regularizer=l2(l2_reg_embedding))(
+                       sparse_inputs[:, i]) for i, feat in enumerate(sparse_features)]
     
     # Flatten embeddings
     sparse_embeds_flatten = [Flatten()(embed) for embed in sparse_embeds]
@@ -59,11 +58,11 @@ def DeepFMSimple(sparse_features, dense_features, feature_dict, sparse_embdim=4,
     # Linear part
     sparse_embed1_flatten = [Flatten()(Embedding(input_dim=feature_dict[feat]["sparse_size"], output_dim=1, 
                                embeddings_initializer=Zeros(), embeddings_regularizer=l2(l2_reg_embedding))(
-                               tf.cast(sparse_inputs[:, i], tf.int32))) for i, feat in enumerate(sparse_features)]
+                               sparse_inputs[:, i])) for i, feat in enumerate(sparse_features)]
     linear_logit = Dense(1, activation=None)(Concatenate()(sparse_embed1_flatten + [dense_inputs]))
 
     # Combine outputs
-    final_logit = dnn_logit + fm_logit + linear_logit
+    final_logit = add_func([linear_logit, fm_logit, dnn_logit])
     output = PredictionLayer(task)(final_logit)
 
     # Define and return the model

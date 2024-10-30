@@ -77,6 +77,6 @@ if __name__ == "__main__":
     from tensorflow.keras.utils import plot_model  
   
     # 假设你已经有了一个模型 model  
-    plot_model(model, to_file='./img/deepfm_simple_1030_1.png', show_shapes=True, show_layer_names=True)
+    plot_model(model, to_file='./img/deepfm_simple_1030_2.png', show_shapes=True, show_layer_names=True)
     
     print("*"*30+"end"+"*"*30)

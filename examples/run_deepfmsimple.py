@@ -40,9 +40,9 @@ if __name__ == "__main__":
         print(f"data[{feat}].vocabulary_size:{data[feat].max()+1}")
     train, test = train_test_split(data, test_size=0.2, random_state=2020)
     # 打印测试集5个样本数据
-    train_model_input = train[sparse_features + dense_features].values
-    test_model_input = test[sparse_features + dense_features].values
-    test_model_input5 = test.head()[sparse_features + dense_features].values
+    train_model_input = train[sparse_features + dense_features]
+    test_model_input = test[sparse_features + dense_features]
+    test_model_input5 = test.head()[sparse_features + dense_features]
     print(f"test_model_input5:{test_model_input5}")
 
     # 4.Define Model,train,predict and evaluate
@@ -77,6 +77,6 @@ if __name__ == "__main__":
     from tensorflow.keras.utils import plot_model  
   
     # 假设你已经有了一个模型 model  
-    plot_model(model, to_file='./img/deepfm_simple_1030_3.png', show_shapes=True, show_layer_names=True)
+    plot_model(model, to_file='./img/deepfm_simple_1031_1.png', show_shapes=True, show_layer_names=True)
     
     print("*"*30+"end"+"*"*30)
